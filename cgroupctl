@@ -1,0 +1,45 @@
+#!/bin/bash
+#
+
+start() {
+  if [ -x /etc/rc.d/rc.cgconfig ]; then
+    /etc/rc.d/rc.cgconfig start
+    echo
+  fi
+
+  if [ -x /etc/rc.d/rc.cgred ]; then
+    /etc/rc.d/rc.cgred start
+  fi
+}
+
+stop() {
+  if [ -x /etc/rc.d/rc.cgred ]; then
+    /etc/rc.d/rc.cgred stop
+  fi
+
+  if [ -x /etc/rc.d/rc.cgconfig ]; then
+    /etc/rc.d/rc.cgconfig stop
+    echo
+  fi
+}
+
+
+restart() {
+  stop
+  sleep 2
+  start
+}
+
+case "$1" in
+'start')
+  start
+  ;;
+'stop')
+  stop
+  ;;
+restart)
+  restart
+  ;;
+*)
+  echo "usage $0 start|stop|restart"
+esac

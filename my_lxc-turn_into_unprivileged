@@ -1,0 +1,231 @@
+#!/bin/bash
+#
+# Script to turn a normal container into an unprivileged one.
+# by Roberto Puzzanghera https://notes.sagredo.eu
+#
+# Usage:
+# my_lxc-turn_into_unprivileged <container_name> <user>
+# <user> is the owner of the container
+# <user> will eventually be created by this script
+#
+
+. /usr/local/bin/my_lxc-common
+
+NAME=$1
+USER=$2
+
+usage() {
+  echo
+  echo "Usage:"
+  echo "$0 <container_name> <user>"
+  echo "<user> is the owner of the container"
+  echo "<user> will be eventually created by this script"
+  echo
+}
+
+setup_cgconfig() {
+  if [ ! -d /etc/cgconfig.d ]; then
+    mkdir /etc/cgconfig.d
+  fi
+
+  FILE=/etc/cgconfig.d/$USER.conf
+  if [ ! -f $FILE ]; then
+cat > $FILE << __EOF__
+group $USER {
+  perm {
+    task {
+      uid = $USER;
+      gid = nogroup;
+    }
+    admin {
+      uid = $USER;
+      gid = nogroup;
+    }
+  }
+  cpuset {
+    cgroup.clone_children = 1;
+    cpuset.mems = 0;
+    cpuset.cpus = $CPUS;
+  }
+  cpu {}
+  cpuacct {}
+  blkio {}
+  memory { memory.use_hierarchy = 1; }
+  devices {}
+  freezer {}
+  net_cls {}
+  perf_event {}
+  net_prio {}
+  pids {}
+}
+__EOF__
+
+    # setup control group file system
+    cgconfigparser -l /etc/cgconfig.d/${USER}.conf
+    if [ $? -ne 0 ]; then
+      echo "cgconfigparser failed in parsing /etc/cgconfig.d/${USER}.conf. Exiting..."
+      exit 1
+    fi
+  else
+    echo "$FILE already exists. Skipping..."
+  fi
+}
+
+setup_cgrules() {
+  if [ ! -d /etc/cgrules.d ]; then
+    mkdir /etc/cgrules.d
+  fi
+
+  FILE=/etc/cgrules.d/$USER.conf
+  if [ ! -f $FILE ]; then
+    echo "$USER          *               ${USER}/" > $FILE
+  else
+    echo "$FILE already exists. Skipping..."
+  fi
+}
+
+setup_usernet() {
+  FILE=/etc/lxc/lxc-usernet
+  if [ ! -f "$FILE" ]; then
+    touch $FILE
+  fi
+
+  egrep  -q -i "^${USER}" $FILE
+  if [ $? -eq 0 ]; then
+    echo "User $USER has already usernet privileges in file $FILE. Skipping..."
+  else
+    echo "$USER veth lxcbr0 20" >> $FILE
+  fi
+}
+
+# Create idmap in case the user already exist, but without idmap
+create_idmap() {
+  # create a temp user
+  useradd tempuser
+  # retrieve its idmap
+  START_UID=$(sed -n "/#/! s/^tempuser:\(.*\):.*/\1/p" /etc/subuid)
+      RANGE=$(sed -n "/#/! s/^tempuser:.*:\(.*\)/\1/p" /etc/subuid)
+    END_UID=$(($START_UID + $RANGE))
+  # delete tempuser
+  userdel tempuser
+  rm -f /var/spool/mail/tempuser
+  # assign the idmap to $USER
+  usermod --add-subuids $START_UID-$END_UID $USER
+  usermod --add-subgids $START_UID-$END_UID $USER
+}
+
+create_user() {
+  if [ ! -f /etc/subuid ]; then
+    touch /etc/subuid
+  fi
+  if [ ! -f /etc/subgid ]; then
+    touch /etc/subgid
+  fi
+
+  egrep  -q -i "^${USER}:" /etc/passwd
+  if [ $? -eq 0 ]; then
+    echo "User $USER already exists in /etc/passwd."
+    # Let's see if it has uidmap already defined...
+    egrep  -q -i "^${USER}:" /etc/subuid
+    if [ $? -eq 0 ]; then
+      echo "User $USER already has subuid & subgid defined. Going on..."
+    else
+      create_idmap
+      if [ $? -eq 0 ]; then
+        return 1
+      fi
+    fi
+  else
+    echo "User $USER does not exist in /etc/passwd. Creating..."
+    useradd -g nogroup $USER
+  fi
+}
+
+################################################################################
+
+# sanity check
+if [ $# -lt 2 ] || [ "$1" = 'help' ]; then
+  usage
+  exit 1
+fi
+
+# USER cannot be root
+if [ "$USER" = 'root' ]; then
+  echo "USER variable cannot be root"
+  usage
+  exit 1
+fi
+
+# Exit if container does not exist
+container_exists $NAME
+if [ $? -ne 1 ]; then
+  echo "Container $NAME does not exist. Exiting..."
+  exit 1
+fi
+
+# $CONFIG file must exist
+CONFIG=$LXC_PATH/$NAME/config
+if [ ! -f "$CONFIG" ]; then
+  echo
+  echo "$CONFIG file not found. Exiting."
+  echo
+  exit 1
+fi
+
+# Has been already converted?
+if grep -q 'lxc.idmap' $CONFIG; then
+  echo
+  echo "Container $NAME is already unprivileged. Exiting."
+  echo
+  exit 1
+fi
+
+# stop the container
+stop_container $NAME
+if [ $? -ne 0 ]; then
+  echo "Failed in stopping container $NAME. Exiting..."
+  exit 1
+fi
+
+# Create user
+create_user
+if [ $? -ne 0 ]; then
+  echo "Failed in creating user $USER. Exiting..."
+  exit 1
+fi
+
+# get uid/gid & range
+START_UID=$(sed -n "/#/! s/^${USER}:\(.*\):.*/\1/p" /etc/subuid)
+RANGE=$(sed -n "/#/! s/^${USER}:.*:\(.*\)/\1/p" /etc/subuid)
+
+# Remap uid & gid
+my_lxc-container-userns-convert $NAME $START_UID $RANGE
+
+# adjust file/dir privileges
+chown $USER:nogroup $LXC_PATH/$NAME $LXC_PATH/$NAME/config
+mkdir -p /home/$USER/.local/share/lxc
+mkdir -p /home/$USER/.cache
+chown -R $USER:nogroup /home/$USER/.local /home/$USER/.cache
+chmod go-rw $LXC_PATH/$NAME
+chmod +x $LXC_PATH/$NAME
+
+# setup cgconfig
+setup_cgconfig
+if [ $? -ne 0 ]; then
+  echo "Failed in setting up cgconfig. Exiting..."
+  exit 1
+fi
+
+# setup cgrules
+setup_cgrules
+if [ $? -ne 0 ]; then
+  echo "Failed in setting up cgrules. Exiting..."
+  exit 1
+fi
+
+# add user to lxc-usernet
+setup_usernet
+if [ $? -ne 0 ]; then
+  echo "Failed in setting up usernet. Exiting..."
+  exit 1
+fi

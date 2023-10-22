@@ -1,0 +1,176 @@
+#!/bin/bash
+#
+# lxc-destroy wrapper by Roberto Puzzanghera https://notes.sagredo.eu
+#
+# Usage: my_lxc-destroy <container_name>
+#
+
+. /usr/local/bin/my_lxc-common
+
+NAME=$1
+
+# Container name must be provided
+if [ -z "$NAME" ]; then
+  echo "Container name is required."
+  echo "Usage: $0 <container_name>"
+  exit 1
+fi
+
+del_user() {
+  /bin/egrep  -q -i "^${1}:" /etc/passwd
+  if [ $? -eq 0 ]; then
+    echo "Deleting $1..."
+    pkill -u $1
+    userdel $1
+    if [ $? -ne 0 ]; then
+      echo "userdel failed in removing user $1."
+      exit 1
+    fi
+    # remove home, as the top dir is owned by root
+    if [ -d /home/$1 ]; then
+      rm -rf /home/$1
+    fi
+    # remove maildir
+    if [ -e /var/spool/mail/$1 ]; then
+      rm /var/spool/mail/$1
+    fi
+  else
+    echo "User $1 does not exists in /etc/passwd. Exiting..."
+    exit 1
+  fi
+}
+
+remove_ids() {
+  START_UID=$(sed -n "/#/! s/^${NAME}:\(.*\):.*/\1/p" /etc/subuid)
+    END_UID=$(sed -n "/#/! s/^${NAME}:.*:\(.*\)/\1/p" /etc/subuid)
+    END_UID=$(($END_UID + $START_UID))
+
+  START_GID=$(sed -n "/#/! s/^${NAME}:\(.*\):.*/\1/p" /etc/subgid)
+    END_GID=$(sed -n "/#/! s/^${NAME}:.*:\(.*\)/\1/p" /etc/subgid)
+    END_GID=$(($END_GID + $START_GID))
+
+  usermod --del-subuids $START_UID-$END_UID $NAME
+  usermod --del-subgids $START_GID-$END_GID $NAME
+}
+
+delete_user() {
+  # unload cgroup
+  cgclear -l /etc/cgconfig.d/$1.conf
+  if [ $? -ne 0 ]; then
+    echo "cgclear failed in unloading cgroups. Check later..."
+  fi
+  # remove cgconfig/cgrules config files
+  rm /etc/cgconfig.d/$1.conf
+  rm /etc/cgrules.d/$1.conf
+
+  # remove user from lxc-usernet
+  sed -i "/${1} /d" /etc/lxc/lxc-usernet
+  if [ $? -ne 0 ]; then
+    echo "Failed in removing user $1 from usernet. Exiting..."
+    exit 1
+  fi
+
+  # is it safe to delete the user?
+  echo -n "User ${1} is going to be deleted. Be sure that it is not a system wide user like apache, mysql etc. "
+  echo -n "Confirm [y/n]? [n] "
+  read USER_DELETE
+  if [ "$USER_DELETE" != 'y' ] && [ "$USER_DELETE" != 'Y' ]; then
+    echo "Ok. User $1 won't be deleted."
+  else
+    del_user $1
+    if [ $? -ne 0 ]; then
+      echo "Failed in deleting user $1. Exiting..."
+      exit 1
+    fi
+  fi
+}
+
+destroy() {
+  # Destroy it!
+  lxc-destroy $1
+  if [ $? -ne 0 ]; then
+    echo "Failed in destroying container $1. Exiting..."
+    exit 1
+  fi
+}
+
+########################################################################################
+
+# sanity check
+if [ ! -n "$1" ]; then
+  echo
+  echo "Missing container name."
+  echo "Usage: $0 <name>"
+  echo
+  exit 1
+fi
+
+container_exists $NAME
+if [ $? -eq 0 ]; then
+  echo "Container $NAME does not exist. Exiting..."
+  exit 1
+fi
+
+# is it safe to destroy the container?
+echo -n "${NAME} container is going to be destroyed. Confirm [y/n]? [n] "
+read NAME_DESTROY
+if [ "$NAME_DESTROY" != 'y' ] && [ "$NAME_DESTROY" != 'Y' ]; then
+  echo "Exiting."
+  exit 0
+fi
+
+# find the owner of $NAME container
+USER=$(owner $NAME)
+if [ $? -ne 0 ]; then
+  echo "Failed in retrieving the owner of the container $NAME. Exiting..."
+  exit 1
+fi
+
+# stop the container
+stop_container $NAME $USER
+if [ $? -ne 0 ]; then
+  echo "Failed in stopping container $NAME. Exiting..."
+  exit 1
+fi
+
+# check if it's root. If yes destroy and do not procede to user delete tasks.
+if [ "$USER" = 'root' ]; then
+  lxc-destroy $NAME
+  exit 1
+fi
+
+# check if $USER is the owner of any other container. If yes do not delete that user
+i=0;
+for CONTAIN in $(/usr/bin/lxc-ls); do
+  # is it unprivileged?
+  if grep -q 'lxc.idmap' $LXC_PATH/$CONTAIN/config; then
+    # find owner of the container (NB: no spaces around the '=')
+    USER2=$(owner $CONTAIN)
+    if [ "$USER2" = "$USER" ] && [ "$CONTAIN" != "$NAME" ]; then
+      ((i++))
+      if [ $i -eq 1 ];then
+        echo "User $USER is owner of some other container. We won't delete it."
+      fi
+    fi
+  fi
+done
+
+if [ $i -eq 0 ]; then
+  # Delete user
+  delete_user $USER
+  if [ $? -ne 0 ]; then
+    echo "Failed in deleting user $USER. Exiting..."
+    exit 1
+  fi
+fi
+
+# Destroy it!
+echo "Destroying $NAME container..."
+lxc-destroy $NAME
+if [ $? -ne 0 ]; then
+  echo "Failed in destroying container ${NAME}. Exiting..."
+  exit 1
+else
+  echo "...done."
+  exit 0
+fi

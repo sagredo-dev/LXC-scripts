@@ -1,0 +1,8 @@
+#!/bin/bash
+#
+# lxc-autostart wrapper script
+# It starts both privileged and unprivileged containers with lxc.start.auto=1
+# in the available container configurations.
+#
+
+lxcctl start

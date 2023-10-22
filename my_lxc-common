@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+# LXC Scripts by Roberto Puzzanghera
+# More info here https://notes.sagredo.eu/lxc-scripts-280/wrapper-scripts-for-lxc-unprivileged-containers-258.html
+#
+
+DOMAIN=mydomain.tld # default domain
+LXC_PATH=/lxc       # where to store LXC containers
+CPUS=0-3            # number of cpus in the system
+
+########################################################################################
+
+# It finds the owner of the container
+owner() {
+  echo $(ls -ld $LXC_PATH/$1 | awk 'NR==1 {print $3}')
+}
+
+# It returns 1 if a given container exists, 0 if not
+container_exists() {
+  i=0
+  for CONTAIN in $(lxc-ls); do
+    if [ "$CONTAIN" == "$1" ]; then
+      ((++i));
+      break;
+    fi
+  done
+  return $i
+}
+
+# It returns 1 if a container is running, 2 if it is frozen, 0 otherwise
+is_it_running() {
+  STATUS=0
+
+  # if OWNER must be passed as $2
+  if [ -z "$2"  ]; then
+    echo "Expecting the owner of the container $1 as an argument of is_it_running(). Exiting..."
+    exit 1
+  fi
+
+  # is it running/frozen?
+  if [ "$(sudo -u $2 lxc-info -s -n $1 2> /dev/null | grep RUNNING$)" ]; then
+    STATUS=1
+  elif [ "$(sudo -u $2 lxc-info -s -n $1 2> /dev/null | grep FROZEN$)" ]; then
+    STATUS=2
+  fi
+  echo $STATUS
+}
+
+# It stops a container
+stop_container() {
+  OWNER=$(owner $1)
+  RUNNING=$(is_it_running $1 $OWNER)
+  if [ $RUNNING -ne 0 ]; then
+    echo "Stopping container $1..."
+    lxd $1
+    if [ $? -ne 0 ]; then
+      echo "Failed in stopping container $1. Exiting..."
+      exit 1
+    else
+      echo "stopped."
+    fi
+  fi
+}

@@ -1,0 +1,56 @@
+#!/bin/bash
+
+NFT="/usr/sbin/nft"
+
+VNET="10.0.0.0/24"
+
+HTTPS_IP=10.0.0.1
+HTTPS_PORT=443
+
+SMTP_IP=10.0.0.2
+SMTP_PORT=25
+
+NS_IP=10.0.0.3
+NS_PORT=53
+
+##########################################################################
+
+# Flush nat table
+$NFT delete table ip nat
+
+# Create tables and chains
+$NFT add table ip nat
+$NFT 'add chain ip nat PREROUTING  { type nat hook prerouting  priority 0; }'
+
+# Usage: nat $PORT $DESTINATION_IP $MESSAGE
+nat() {
+  if [ -z "$3" ]; then
+    echo "Missing Message"
+    exit 1
+  else echo $3
+  fi
+
+  if [ -z "$1" ]; then
+    echo "Missing PORT"
+    exit 1
+  fi
+
+  if [ -z "$2" ]; then
+    echo "Missing destination IP"
+    exit 1
+  fi
+
+  $NFT add rule ip nat PREROUTING ip saddr != $VNET tcp dport $1 counter dnat to $2
+  $NFT add rule ip nat PREROUTING ip saddr != $VNET udp dport $1 counter dnat to $2
+}
+
+#####################################################################################
+
+# HTTPS
+nat $HTTPS_PORT $HTTPS_IP "Natting https port $HTTPS_PORT to $HTTPS_IP..."
+
+# SMTP
+nat $SMTP_PORT  $SMTP_IP  "Natting smtp  port $SMTP_PORT to $SMTP_IP..."
+
+# NS
+nat $NS_PORT    $NS_IP    "Natting named port $NS_PORT to $NS_IP..."

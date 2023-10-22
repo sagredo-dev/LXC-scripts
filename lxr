@@ -1,0 +1,24 @@
+#!/bin/bash
+#
+# lxc restart script by Roberto Puzzanghera https://notes.sagredo.eu
+#
+# Usage: lxr <container_name>
+#
+
+NAME=$1
+
+# Container name must be provided
+if [ -z "$NAME" ]; then
+  echo
+  echo "Container name is required"
+  echo "Usage: $0 <container_name>"
+  echo
+  exit 1
+fi
+
+echo "Stopping $NAME..."
+lxd $NAME
+
+echo "Starting $NAME..."
+lxu $NAME
+

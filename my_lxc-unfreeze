@@ -1,0 +1,68 @@
+#!/bin/bash
+#
+# lxc-unfreeze wrapper by Roberto Puzzanghera - https://notes.sagredo.eu
+#
+# Usage: my_lxc-unfreeze -n <name>
+#
+
+. /usr/local/bin/my_lxc-common
+
+# expected usage
+usage() {
+  echo "Usage: $0 -n <name>
+  $0 script takes the following options:
+  -n  <name>    Name of the source container"
+  exit 1
+}
+
+# Define the flags the user can pass to the script
+while getopts :n:h option
+  do
+    case "${option}" in
+    n) NAME=${OPTARG};;
+    h) usage;;
+    *) usage;;
+    :) echo
+       echo "Please provide all required options."
+       echo
+       usage;;
+  esac
+done
+
+########################################################################################
+
+# sanity check
+if [ -z "$NAME" ]; then
+  echo
+  echo "Container <name> is required"
+  echo
+  usage
+  exit 1
+fi
+
+# check if source and dest container exist already
+container_exists $NAME
+if [ $? -eq 0 ]; then
+  echo "Container $NAME does not exist. Exiting..."
+  exit 1
+fi
+
+# find the owner of the container
+OWNER=$(owner $NAME)
+if [ $? -ne 0 ]; then
+  echo "Failed in retrieving the owner of the container $NAME. Exiting..."
+  exit 1
+fi
+
+# is it frozen?
+if [ "$(sudo -u $OWNER lxc-info -s -n $NAME 2> /dev/null | grep FROZEN$)" ]; then
+  CONFIG=$LXC_PATH/$NAME/config
+  if grep -q 'lxc.idmap' $CONFIG; then
+    sudo -u $OWNER lxc-unfreeze -n $NAME --rcfile=$CONFIG
+  else
+    lxc-unfreeze -n $NAME
+  fi
+else
+  echo "LXC container $NAME is not frozen. Exiting."
+  exit 0
+fi

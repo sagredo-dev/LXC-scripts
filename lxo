@@ -1,0 +1,32 @@
+#!/bin/bash
+#
+# lxc-console wrapper script by Roberto Puzzanghera
+#
+# Usage: lxo <container_name>
+#
+
+. /usr/local/bin/my_lxc-common
+
+NAME=$1
+CONFIG=$LXC_PATH/$NAME/config
+
+# Container name must be provided
+if [ -z "$NAME" ]; then
+  echo
+  echo "Container name is required"
+  echo "Usage: $0 <container_name>"
+  echo
+  exit 1
+fi
+
+# Exit if container does not exist
+container_exists $NAME
+if [ $? -eq 0 ]; then
+  echo "Container $NAME does not exist. Exiting..."
+  exit 1
+fi
+
+OWNER=$(owner $NAME)
+sudo -u $OWNER lxc-console -n $NAME
+
+exit 0

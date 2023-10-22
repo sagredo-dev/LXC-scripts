@@ -1,0 +1,67 @@
+#!/bin/bash
+#
+# lxc-ls wrapper script by Roberto Puzzanghera https://notes.sagredo.eu
+#
+
+. /usr/local/bin/my_lxc-common
+
+CONFIG=$LXC_PATH/$1/config
+
+GREEN='\033[1;32m'
+RED='\033[1;31m'
+YEL='\033[1;33m'
+HIGHLIGHT=$YEL
+NC='\033[0m' # No Color
+
+check_user() {
+  egrep  -q -i "^${1}:" /etc/passwd
+  if [ $? -eq 0 ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+if [ -n "$1" ]; then
+  # sanity check
+  check_user $1
+  if [ $? -eq 1 ]; then
+    echo -e "${GREEN}User ${HIGHLIGHT}${1}${GREEN} does not exist. Exiting...${NC}"
+    exit 1
+  fi
+  # unprivileged containers dell'utente $1
+  echo -e "${GREEN}Unprivileged running containers of user ${HIGHLIGHT}${1}${NC}"
+  sudo -u $1 lxc-ls --fancy
+else
+  # show normal lxc-ls output
+  echo -e "${GREEN}All containers${NC}"
+  lxc-ls --fancy
+
+  # Build the owners array with a loop on all unprivileged containers
+  users=()
+
+  for CONTAIN in $(lxc-ls); do
+    # is it unprivileged?
+    if grep -q 'lxc.idmap' $LXC_PATH/$CONTAIN/config; then
+      # find owner of the container
+      USER=$(owner $CONTAIN)
+
+      # Add new element at the end of the array
+      if [[ ! " ${users[*]} " =~ " $USER " ]]; then
+        users=(${users[@]} $USER)
+        # whatever you want to do when array contains value
+      fi
+    fi
+  done
+
+  # users is the array of users which have containers. Sort the array:
+  IFS=$'\n' users=($(sort <<<"${users[*]}"))
+  unset IFS
+
+  # Show containers belonging to each user
+  for user in "${users[@]}"
+  do
+     echo -e "${GREEN}Unprivileged running containers of user ${HIGHLIGHT}${user}${NC}"
+     sudo -u $user lxc-ls --fancy
+  done
+fi

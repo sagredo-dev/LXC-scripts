@@ -1,0 +1,178 @@
+#!/bin/bash
+#
+# lxc-copy wrapper by Roberto Puzzanghera - https://notes.sagredo.eu
+#
+# Usage: my_lxc-copy -h
+#
+
+. /usr/local/bin/my_lxc-common
+
+# expected usage
+usage() {
+  echo "Usage: $0 -n <name> -N <newname> [-R] [-i <ip> | -d] [-u <user>] [-h]
+  $0 script takes the following options:
+  -n  <name>    Name of the source container
+  -N  <newname> Name of the new container
+  -R            Rename the original container. If -R is provided the following options will be ignored.
+  -d            Use DHCP
+  -i  <ip>      IP address of the container. Ignored if -d was declared
+  -u  <user>    Set the system user that will own the container.
+                <user> will be created if not existing yet.
+                If not declared the container will be owned by the user who owns the source container
+                and eventually remains privileged just like the source container.
+  -h            Print this help"
+}
+
+# Define the flags the user can pass to the script
+while getopts :n:N:Ri:u:dh option
+  do
+    case "${option}" in
+    n) SOURCE=${OPTARG};;
+    N) DEST=${OPTARG};;
+    R) RENAME=-R;;
+    u) OWNER=${OPTARG};;
+    i) NEW_IP=${OPTARG};;
+    d) DHCP=yes;;
+    h) usage;;
+    *) usage;;
+    :) echo
+       echo "Please provide all required options."
+       echo
+       usage;;
+  esac
+done
+
+########################################################################################
+
+# sanity check
+if [ -z "$SOURCE" ] || [ -z "$DEST" ]; then
+  echo
+  echo "Container <name> and <newname> are required"
+  echo
+  usage
+  exit 1
+fi
+
+# check if source and dest container exist already
+container_exists $SOURCE
+if [ $? -eq 0 ]; then
+  echo "Container $SOURCE does not exist. Exiting..."
+  exit 1
+fi
+container_exists $DEST
+if [ $? -eq 1 ]; then
+  echo "Container $DEST already exists. Exiting..."
+  exit 1
+fi
+
+# confirm
+if [ -n "$RENAME" ]; then
+  echo -n "${SOURCE} container is going to be renamed to $DEST. Confirm [y/n]? [n] "
+else
+  echo -n "${SOURCE} container is going to be copied to $DEST. Confirm [y/n]? [n] "
+fi
+read VAR_COPY
+if [ "$VAR_COPY" != 'y' ] && [ "$VAR_COPY" != 'Y' ]; then
+  echo "Exiting."
+  exit 0
+fi
+
+# retrieve the owner of the old container
+if [ -z "$OWNER" ]; then
+  CUSER=$(owner $SOURCE)
+else
+  CUSER=$OWNER
+fi
+
+# stop container $SOURCE
+RUNNING=$(is_it_running $SOURCE $CUSER)
+if [ $RUNNING -ne 0 ]; then
+  echo "Stopping container $SOURCE..."
+  lxd $SOURCE
+  if [ $? -ne 0 ]; then
+    echo "Failed in stopping container $SOURCE. Exiting..."
+    exit 1
+  else
+    echo "stopped."
+  fi
+fi
+
+if [ -n "$RENAME" ]; then
+  echo "Renaming..."
+else
+  echo "Copying..."
+fi
+
+########################################################################
+
+# copy or rename if -R was provided
+lxc-copy --name $SOURCE --lxcpath $LXC_PATH --newname $DEST --newpath $LXC_PATH $RENAME
+if [ $? -ne 0 ]; then
+  if [ -n "$RENAME" ]; then
+    echo "Failed in renaming container $SOURCE to $DEST. Exiting..."
+  else
+    echo "Failed in copying container $SOURCE to $DEST. Exiting..."
+  fi
+  exit 1
+fi
+
+# if renaming, adjust the privileges (no need to setup the net)
+if [ -n "$RENAME" ]; then
+  #### rename
+  chmod +x $LXC_PATH/$DEST
+  chown $CUSER:nogroup $LXC_PATH/$DEST $LXC_PATH/$DEST/config
+  chmod g-rw $LXC_PATH/$DEST
+  echo "done."
+else
+  #### copy
+
+  # fix fstab problem
+  if [ -f $LXC_PATH/$DEST/fstab ]; then
+    rm $LXC_PATH/$DEST/fstab
+    sed -i "s/${DEST}\/fstab/${DEST}\/rootfs\/etc\/fstab/g" $LXC_PATH/$DEST/config
+  fi
+
+  ########################## setup the net
+  if [ -f $LXC_PATH/$SOURCE/rootfs/etc/rc.d/rc.inet1.conf ]; then
+    # retrieve old IP
+    OLD_IP=$(sed -n "/#/! s/^IPADDRS\[0\]=\"\(.*\)\/24\"/\1/p" $LXC_PATH/$SOURCE/rootfs/etc/rc.d/rc.inet1.conf)
+    if [ -z "$DHCP" ]; then
+      # If not DHCP replace old IP with new IP
+      sed -i "s/IPADDRS\[0\]=\".*\"/IPADDRS\[0\]=\"${NEW_IP}\/24\"/g" $LXC_PATH/$DEST/rootfs/etc/rc.d/rc.inet1.conf
+    else
+      # enable DHCP
+      sed -i "s/USE_DHCP\[0\]=\"\"/USE_DHCP\[0\]=\"yes\"/g" $LXC_PATH/$DEST/rootfs/etc/rc.d/rc.inet1.conf
+      # remove old IP
+      sed -i "s/IPADDRS\[0\]=\".*\"/IPADDRS\[0\]=\"\"/g" $LXC_PATH/$DEST/rootfs/etc/rc.d/rc.inet1.conf
+    fi
+  fi
+
+  ########################## decide if it will be unprivileged
+  if [ -n "$OWNER" ]; then
+    # go for turning into unprivileged
+    my_lxc-turn_into_unprivileged $DEST $OWNER
+  elif grep -q 'lxc.idmap' $LXC_PATH/$SOURCE/config; then
+    # The new container will be owned by the owner of the source container
+    OWNER=$(owner $SOURCE)
+    chmod +r $LXC_PATH/$DEST/config
+    chmod +x $LXC_PATH/$DEST
+    chown $OWNER:nogroup $LXC_PATH/$DEST $LXC_PATH/$DEST/config
+    chmod g-rw $LXC_PATH/$DEST
+  fi
+
+  echo "done."
+
+  # eventually restart the source container
+  if [ $RUNNING -eq 1 ]; then
+    echo "Restarting container ${SOURCE}..."
+    lxu $SOURCE
+    if [ $? -ne 0 ]; then
+      echo "Failed in starting container $SOURCE. Exiting..."
+      exit 1
+    else
+      echo "...started."
+    fi
+  fi
+fi
+
+exit 0

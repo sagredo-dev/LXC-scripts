@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+# lxc-attach wrapper script by Roberto Puzzanghera
+#
+# Usage: lxa <container_name> [<command>]
+#
+
+. /usr/local/bin/my_lxc-common
+
+NAME=$1
+COMMAND=${2:-/bin/bash --rcfile /etc/profile}
+CONFIG=$LXC_PATH/$NAME/config
+
+usage() {
+  echo
+  echo "Usage: $0 <container_name> [<command>]"
+  echo "       $0 -h"
+  echo "If <command> is not provided, the '${COMMAND}' shell will be executed."
+  echo
+}
+
+# Container name must be provided
+if [ -z "$NAME" ]; then
+  echo "Container name is required"
+  usage
+  exit 1
+fi
+
+if [ "$1" = "-h" ]; then
+  usage
+  exit 0
+fi
+
+# Exit if container does not exist
+container_exists $NAME
+if [ $? -eq 0 ]; then
+  echo "Container $NAME does not exist. Exiting..."
+  exit 1
+fi
+
+OWNER=$(owner $NAME)
+
+# if it's not running start the container
+STATUS=$(is_it_running $NAME $OWNER)
+if [ $STATUS -eq 0 ]; then
+  echo "Container $NAME is stopped. Starting..."
+  lxu $NAME
+  if [ $? -ne 0 ]; then
+    echo "Failed in starting container $NAME. Exiting..."
+    exit 1
+  fi
+elif [ $STATUS -eq 2 ]; then
+  echo "Container $NAME is frozen. Unfreezing..."
+  my_lxc-unfreeze -n $NAME
+  if [ $? -ne 0 ]; then
+    echo "Failed in unfreezing container $NAME. Exiting..."
+    exit 1
+  fi
+fi
+
+sudo -u $OWNER lxc-attach -n $NAME --keep-env --set-var HOSTNAME=$NAME.$DOMAIN --set-var USER=root --set-var HOME=/root -- $COMMAND
+
+exit 0

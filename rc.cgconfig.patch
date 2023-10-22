@@ -1,0 +1,41 @@
+Patch for rc.cgconfig (Slackware 15.0)
+
+cgconfigparser inside rc.cgconfig is not parsing configuration files stored into /etc/cgconfig.d
+This patch will correct this trouble.
+
+===================================================================================================
+
+--- rc.cgconfig.orig	2022-03-13 19:28:46.623520787 +0100
++++ rc.cgconfig	2022-03-13 20:52:52.250726562 +0100
+@@ -32,7 +32,9 @@
+ # get correct location of binaries from configure
+ prefix=/usr;exec_prefix=${prefix};sbindir=${exec_prefix}/sbin
+ CGCONFIGPARSER_BIN=$sbindir/cgconfigparser
++CGCLEAR_BIN=$sbindir/cgclear
+ CONFIG_FILE=/etc/cgconfig.conf
++CONFIG_DIR=/etc/cgconfig.d
+ servicename=cgconfig
+ lockfile=/var/lock/subsys/$servicename
+ 
+@@ -103,10 +105,10 @@
+                     return 6
+                 fi
+ 
+-                $CGCONFIGPARSER_BIN -l $CONFIG_FILE
++                $CGCONFIGPARSER_BIN -l $CONFIG_FILE -L $CONFIG_DIR
+                 retval=$?
+                 if [ $retval -ne 0 ]; then
+-                    echo "Failed to parse " $CONFIG_FILE
++                    echo "Failed to parse " $CONFIG_FILE $CONFIG_DIR
+                     return 1
+                 fi
+         fi
+@@ -127,7 +129,7 @@
+ 
+ stop() {
+     echo -n "Stopping cgconfig service: "
+-    /usr/sbin/cgclear -l /etc/cgconfig.conf
++    $CGCLEAR_BIN -l $CONFIG_FILE -L $CONFIG_DIR
+     rm -f "$lockfile"
+     #log_success_msg
+     return 0

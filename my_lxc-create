@@ -1,0 +1,142 @@
+#!/bin/bash
+#
+# lxc-create wrapper by Roberto Puzzanghera https://notes.sagredo.eu
+#
+# Usage: my_lxc-create -h
+#
+
+# Default variables. You can overwrite them passing options to the command
+MIRROR=https://mirrors.slackware.com/slackware
+GW=10.0.0.1                  # gateway
+SLACKPKG_TEMPLATE=my_minimal # slackpkg template (pkg list). Alternative: 15.0
+LXC_TEMPLATE=my_template     # lxc template. Use "slackware" to load /usr/share/lxc/templates/lxc-slackware
+                             #               Use "download" to download an image (net config and other options ignored in that case)
+RELEASE=15.0                 # Release
+DHCP=no	                     # Put yes if you want DHCP
+
+############################################################################# do not touch below this line
+
+. /usr/local/bin/my_lxc-common
+
+function usage() {
+  echo "Usage: $0 script takes the following options:
+  -n  <name>              Set container name to use. **Required**
+  -r  <release>           Set Slackware release to use. Default: 15.0
+  -s  <slackpkg-template> slackpkg template (pkg list). Default: \"my_minimal\". Alternative: 15.0
+  -t  <lxc-template>      Set lxc template to use. Default: \"my_template\".
+                          Use \"slackware\" to load /usr/share/lxc/templates/lxc-slackware
+                          Use \"download\" to load /usr/share/lxc/templates/lxc-download (no net configuration will be done in this case)
+  -m  <mirror>            Set mirror to use. If not set the one specified in the lxc template will be used
+  -o  <domain>            Domain
+  -d                      Use DHCP. Ignored if -i <ip> is passed
+  -i  <ip>                IP address of the container
+  -g  <gw>                Gateway
+  -u  <user>              Set the system user that will own the container. If not declared the container will be privileged
+  -h                      Print help options and exit"
+}
+
+# Define the flags the user can pass to the script
+while getopts :n:r:s:t:m:o:di:g:u:h option
+do
+  case "${option}" in
+  n) NAME=${OPTARG};;
+  r) RELEASE=${OPTARG};;
+  s) SLACKPKG_TEMPLATE=${OPTARG};;
+  t) LXC_TEMPLATE=${OPTARG};;
+  m) MIRROR=${OPTARG};;
+  o) DOMAIN=${OPTARG};;
+  d) DHCP=yes;;
+  i) IP=${OPTARG};;
+  g) GW=${OPTARG};;
+  u) OWNER=${OPTARG};;
+  h) usage;;
+  :) echo
+     echo "Please provide all required options."
+     echo
+     usage;;
+  *) usage;;
+esac
+done
+
+################################################################################ sanity check
+
+# Container name must be provided
+if [ -z "$NAME" ]; then
+  echo
+  echo "Container name is required (-n <name>)"
+  echo
+  usage
+  exit 1
+fi
+
+# Exit if container already exist
+container_exists $NAME
+if [ $? -ne 0 ]; then
+  echo "Container $NAME already exists. Exiting..."
+  exit 0
+fi
+
+# LXC template check
+if [ ! -x "/usr/share/lxc/templates/lxc-${LXC_TEMPLATE}" ]; then
+  echo
+  echo "LXC template /usr/share/lxc/templates/lxc-$LXC_TEMPLATE not found (-t template_name)"
+  echo
+  usage
+  exit 1
+fi
+
+# slackpkg template check
+if [ ! -e "/etc/slackpkg/templates/${SLACKPKG_TEMPLATE}.template" ]; then
+  if [ "${LXC_TEMPLATE}" != "download" ] && [ "${LXC_TEMPLATE}" != "busybox" ] && [ "${LXC_TEMPLATE}" != "local" ] && [ "${LXC_TEMPLATE}" != "oci" ]; then
+    echo
+    echo "slackpkg template /etc/slackpkg/templates/${SLACKPKG_TEMPLATE}.template does not exist (-s template_name)"
+    echo
+    usage
+    exit 1
+  fi
+fi
+
+################################################################################
+
+create_container() {
+  release=$RELEASE \
+  MIRROR=$MIRROR \
+  TEMPLATE=$SLACKPKG_TEMPLATE \
+  DOMAIN=$DOMAIN \
+  lxc-create \
+  -n $NAME \
+  -t $LXC_TEMPLATE \
+  --lxcpath=$LXC_PATH
+}
+
+# create the container
+create_container
+if [ $? -ne 0 ]; then
+  echo "Failed in creating the container $NAME. Exiting..."
+  exit 1
+fi
+
+# do not setup the net if it's not a slackware template
+if [ "${LXC_TEMPLATE}" != "download" ] && [ "${LXC_TEMPLATE}" != "busybox" ] && [ "${LXC_TEMPLATE}" != "local" ] && [ "${LXC_TEMPLATE}" != "oci" ]; then
+  # setup the net
+  if [ -n "$IP" ]; then
+    sed -i "s/IPADDRS\[0\]=\"\"/IPADDRS\[0\]=\"${IP}\/24\"/g" $LXC_PATH/$NAME/rootfs/etc/rc.d/rc.inet1.conf
+  elif [ "$DHCP" = "yes" ]; then
+    sed -i "s/USE_DHCP\[0\]=\"\"/USE_DHCP\[0\]=\"yes\"/g" $LXC_PATH/$NAME/rootfs/etc/rc.d/rc.inet1.conf
+    sed -i "s/DHCP_HOSTNAME\[0\]=\"\"/DHCP_HOSTNAME\[0\]=\"${NAME}\.${DOMAIN}\"/g" $LXC_PATH/$NAME/rootfs/etc/rc.d/rc.inet1.conf
+  fi
+  sed -i "s/GATEWAY=\"\"/GATEWAY=\"${GW}\"/g" $LXC_PATH/$NAME/rootfs/etc/rc.d/rc.inet1.conf
+
+  # Update CA certificates, followed by some bash in case we do not have perl:
+  chroot $LXC_PATH/$NAME/rootfs /usr/sbin/update-ca-certificates -f 2>/dev/null
+  cd $LXC_PATH/$NAME/rootfs/etc/ssl/certs
+  for file in *.pem; do
+    ln -sf "$file" "$(openssl x509 -hash -noout -in "$file")".0
+  done
+  cd - 1>/dev/null
+fi
+
+if [ -n "$OWNER" ]; then
+  # If -u OWNER was passed then go for turning into unprivileged. $OWNER is the user who owns the container
+  my_lxc-turn_into_unprivileged $NAME $OWNER
+fi

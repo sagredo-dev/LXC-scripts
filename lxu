@@ -1,0 +1,82 @@
+#!/bin/bash
+#
+# lxc-start script by Roberto Puzzanghera https://notes.sagredo.eu
+#
+# This script starts a container running the lxc-start command as the
+# owner user if it is unpriviledged, or as root otherwise.
+#
+# Usage: lxu <container_name>
+#
+
+. /usr/local/bin/my_lxc-common
+
+NAME=$1
+
+# display the expected usage
+usage() {
+  echo "Usage: $0 <name>
+       $0 -n <name> [-F -h]
+
+  $0 script takes the following options:
+  -n Name of the container
+  -F Run the container in the foreground. In this mode, the container console will be attached
+     to the current tty and signals will be routed directly to the container.
+     Useful when the container refuses to start.
+     Use with -n <name>
+  -h Print help options and exit"
+}
+
+# Define the flags the user can pass to the script
+while getopts :n:Fh option
+  do
+    case "${option}" in
+    n) NAME=${OPTARG};;
+    F) OPTIONS=-F;;
+    h) usage;;
+    *) usage;;
+  esac
+done
+
+# Container name must be provided
+if [ -z "$NAME" ]; then
+  echo
+  echo "Container name is required"
+  echo
+  usage
+  exit 1
+fi
+
+# Exit if container does not exist
+container_exists $NAME
+if [ $? -eq 0 ]; then
+  echo "Container $NAME does not exist. Exiting..."
+  exit 1
+fi
+
+# $CONFIG file must exist. If not -F was probably provided before <name>
+CONFIG=$LXC_PATH/$NAME/config
+if [ ! -f "$CONFIG" ]; then
+  echo
+  echo "$CONFIG file not found. Exiting..."
+  echo
+  usage
+  exit 1
+fi
+
+OWNER=$(owner $NAME)
+
+# is it already running?
+STATUS=$(is_it_running $NAME $OWNER)
+if [ $STATUS -eq 1 ]; then
+  echo "LXC container $NAME is already running. Exiting."
+  exit 1
+elif [ $STATUS -eq 2 ]; then
+  echo "LXC container $NAME is frozen. Exiting."
+  exit 1
+fi
+
+# start
+sudo -u $OWNER lxc-start -n $NAME -f $CONFIG $OPTIONS
+sudo -u $OWNER lxc-wait  -n $NAME -s RUNNING
+
+exit 0
