@@ -1,7 +1,8 @@
 # slackpkg template for LXC containers based on slackware 15.0
 # this set of packages is suitable for a LAMP server   
 #
-# v. 2023.08.04
+# v. 2024.03.10
+# added gnupg2
 
 #[A]
 aaa_base
@@ -148,6 +149,7 @@ cyrus-sasl
 curl
 dhcpcd
 gnupg
+gnupg2
 gnutls
 inetd
 iproute2
