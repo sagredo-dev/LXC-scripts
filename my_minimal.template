@@ -32,6 +32,7 @@ findutils
 gawk
 glibc-zoneinfo
 gnupg
+gnupg2
 gnutls
 grep
 gzip
