@@ -15,30 +15,42 @@ NAME=$1
 # display the expected usage
 usage() {
   echo "Usage: $0 <name>
-       $0 -n <name> [-F -h]
+       $0 -n <name> [-F -l <LEVEL> -o <logfile> -h]
 
   $0 script takes the following options:
-  -n Name of the container
+  -n <name> Name of the container
   -F Run the container in the foreground. In this mode, the container console will be attached
      to the current tty and signals will be routed directly to the container.
      Useful when the container refuses to start.
      Use with -n <name>
-  -h Print help options and exit"
+  -l <LEVEL> Set log priority to LEVEL
+     LEVEL can be one of the following: FATAL ALERT CRIT WARN ERROR NOTICE INFO DEBUG TRACE
+  -o <FILE> Output to an alternate log FILE. The default is no log.
+  -h Print help options and exit
+
+  If used in the form
+  $0 <name>
+  it simply runs the container with no options."
+
+  exit 1
 }
 
 # Define the flags the user can pass to the script
-while getopts :n:Fh option
+OPTIONS=""
+while getopts n:Fl:o:h option
   do
     case "${option}" in
-    n) NAME=${OPTARG};;
-    F) OPTIONS=-F;;
-    h) usage;;
-    *) usage;;
-  esac
-done
+      n) NAME=${OPTARG};;
+      F) OPTIONS="-F";;
+      l) OPTIONS="${OPTIONS} -l ${OPTARG}";;
+      o) OPTIONS="${OPTIONS} -o ${OPTARG}";;
+      h) usage;;
+      *) usage;;
+    esac
+  done
 
 # Container name must be provided
-if [ -z "$NAME" ]; then
+if [ -z "$NAME" ] || [ "$NAME" == "-h" ]; then
   echo
   echo "Container name is required"
   echo
