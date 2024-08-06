@@ -229,3 +229,15 @@ if [ $? -ne 0 ]; then
   echo "Failed in setting up usernet. Exiting..."
   exit 1
 fi
+
+# relax lxc.mount.auto if template is not slackware
+# https://github.com/lxc/lxc/issues/3964#issuecomment-913018226
+if [ ! -f $LXC_PATH/$NAME/rootfs/etc/slackware-version ]; then
+  cat >> $LXC_PATH/$NAME/config << __EOF__
+
+# relax lxc.mount.auto if template is not slackware
+# https://github.com/lxc/lxc/issues/3964#issuecomment-913018226
+lxc.mount.auto = cgroup:mixed proc:mixed sys:rw
+__EOF__
+fi
+
