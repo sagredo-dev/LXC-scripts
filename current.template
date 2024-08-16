@@ -1,7 +1,10 @@
 # slackpkg template for LXC containers based on slackware current
 # this set of packages is suitable for a LAMP server   
 #
-# v. 2024.07.07
+# 2024.08.16
+# added lzlib
+#
+# 2024.07.07
 # added icu4c, libassuan, npth, sqlite to support gnupg2
 
 #[A]
