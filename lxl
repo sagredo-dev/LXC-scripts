@@ -29,7 +29,7 @@ if [ -n "$1" ]; then
     echo -e "${GREEN}User ${HIGHLIGHT}${1}${GREEN} does not exist. Exiting...${NC}"
     exit 1
   fi
-  # unprivileged containers dell'utente $1
+  # unprivileged containers of user $1
   echo -e "${GREEN}Unprivileged running containers of user ${HIGHLIGHT}${1}${NC}"
   sudo -u $1 lxc-ls --fancy
 else
@@ -65,3 +65,5 @@ else
      sudo -u $user lxc-ls --fancy
   done
 fi
+
+exit 0
