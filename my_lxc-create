@@ -8,7 +8,7 @@
 # Default variables. You can overwrite them passing options to the command
 MIRROR=https://mirrors.slackware.com/slackware
 GW=10.0.0.1                  # gateway
-SLACKPKG_TEMPLATE=my_minimal # slackpkg template (pkg list). Alternative: 15.0
+SLACKPKG_TEMPLATE=15.0       # slackpkg template (pkg list). Alternative: my_minimal
 LXC_TEMPLATE=my_template     # lxc template. Use "slackware" to load /usr/share/lxc/templates/lxc-slackware
                              #               Use "download" to download an image (net config and other options ignored in that case)
 RELEASE=15.0                 # Release
@@ -22,7 +22,7 @@ function usage() {
   echo "Usage: $0 script takes the following options:
   -n  <name>              Set container name to use. **Required**
   -r  <release>           Set Slackware release to use. Default: 15.0
-  -s  <slackpkg-template> slackpkg template (pkg list). Default: \"my_minimal\". Alternative: 15.0
+  -s  <slackpkg-template> slackpkg template (pkg list). Default: \"15.0\". Alternative: \"my_minimal\"
   -t  <lxc-template>      Set lxc template to use. Default: \"my_template\".
                           Use \"slackware\" to load /usr/share/lxc/templates/lxc-slackware
                           Use \"download\" to load /usr/share/lxc/templates/lxc-download (no net configuration will be done in this case)
@@ -134,9 +134,38 @@ if [ "${LXC_TEMPLATE}" != "download" ] && [ "${LXC_TEMPLATE}" != "busybox" ] && 
     ln -sf "$file" "$(openssl x509 -hash -noout -in "$file")".0
   done
   cd - 1>/dev/null
+# setup the net in systemd downloaded OS where a file /etc/systemd/network/eth0.network exists
+elif [ "${LXC_TEMPLATE}" = "download" ] && [ -n "$IP" ] && [ -r $LXC_PATH/$NAME/rootfs/etc/systemd/network/eth0.network ]; then
+  # grab the dns from host's resolv.conf
+  DNS=$(sed -n "/#/! s/^nameserver \(.*\)/\1/p" /etc/resolv.conf | head -1)
+  cat > $LXC_PATH/$NAME/rootfs/etc/systemd/network/eth0.network << __EOF__
+[Match]
+Name=eth0
+
+[Network]
+DHCP=false
+Address=${IP}/24
+Gateway=${GW}
+DNS=${DNS}
+
+[DHCPv4]
+UseDomains=true
+
+[DHCP]
+ClientIdentifier=mac
+__EOF__
+  chmod +x $LXC_PATH/$NAME/rootfs/etc/systemd/network/eth0.network
+
+  # append shared config file
+  cat >> $LXC_PATH/$NAME/config << EOF
+
+lxc.include = /etc/lxc/lxc-common.conf
+EOF
 fi
 
 if [ -n "$OWNER" ]; then
   # If -u OWNER was passed then go for turning into unprivileged. $OWNER is the user who owns the container
   my_lxc-turn_into_unprivileged $NAME $OWNER
 fi
+
+exit 0
