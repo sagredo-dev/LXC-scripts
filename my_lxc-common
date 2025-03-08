@@ -6,7 +6,6 @@
 
 DOMAIN=mydomain.tld # default domain
 LXC_PATH=/lxc       # where to store LXC containers
-CPUS=0-7            # number of cpus in the system
 
 ########################################################################################
 

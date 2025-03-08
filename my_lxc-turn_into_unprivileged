@@ -24,6 +24,9 @@ usage() {
 }
 
 setup_cgconfig() {
+  # Get number of CPUs
+  NPROC=${NPROC:-0-$(($(nproc)-1))}
+
   if [ ! -d /etc/cgconfig.d ]; then
     mkdir /etc/cgconfig.d
   fi
@@ -45,7 +48,7 @@ group $USER {
   cpuset {
     cgroup.clone_children = 1;
     cpuset.mems = 0;
-    cpuset.cpus = $CPUS;
+    cpuset.cpus = $NPROC;
   }
   cpu {}
   cpuacct {}
