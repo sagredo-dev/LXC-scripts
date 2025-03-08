@@ -1,6 +1,9 @@
 # slackpkg template for LXC containers based on slackware current
 # this set of packages is suitable for a LAMP server   
 #
+# 2025.03.08
+# added slackpkg+
+#
 # 2024.08.16
 # added lzlib
 #
@@ -73,6 +76,7 @@ man-pages
 most
 nano
 slackpkg
+slackpkg+
 sudo
 texinfo
 
