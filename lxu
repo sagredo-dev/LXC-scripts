@@ -8,7 +8,7 @@
 # Usage: lxu <container_name>
 #
 
-. /usr/local/bin/my_lxc-common
+. my_lxc-common
 
 NAME=$1
 

@@ -5,7 +5,7 @@
 # Usage: lxe <container_name> -- command
 #
 
-. /usr/local/bin/my_lxc-common
+. my_lxc-common
 
 # display the expected usage
 usage() {

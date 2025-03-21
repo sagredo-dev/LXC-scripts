@@ -11,12 +11,12 @@ GW=10.0.0.1                  # gateway
 SLACKPKG_TEMPLATE=15.0       # slackpkg template (pkg list). Alternative: my_minimal
 LXC_TEMPLATE=my_template     # lxc template. Use "slackware" to load /usr/share/lxc/templates/lxc-slackware
                              #               Use "download" to download an image (net config and other options ignored in that case)
-RELEASE=15.0                 # Release
+RELEASE=current              # Release
 DHCP=no	                     # Put yes if you want DHCP
 
 ############################################################################# do not touch below this line
 
-. /usr/local/bin/my_lxc-common
+. my_lxc-common
 
 function usage() {
   echo "Usage: $0 script takes the following options:

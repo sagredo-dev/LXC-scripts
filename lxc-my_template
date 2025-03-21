@@ -302,6 +302,7 @@ sed
 shadow
 sharutils
 slackpkg
+slackpkg+
 sysklogd
 sysvinit
 sysvinit-functions
