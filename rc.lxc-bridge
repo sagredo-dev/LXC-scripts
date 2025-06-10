@@ -1,44 +1,82 @@
 #!/bin/sh
 #
-# /etc/rc.d/rc.lxc-bridge, Christoph Willing (2015)
+# IPv6 addition and nft migration by Roberto Puzzanghera https://notes.sagredo.eu (2025)
 #
-# Set up a bridge and a NAT network hanging off it.
+# Set up a bridge and a NAT/NAT66 network hanging off it.
+# Set IPv6=1 if you have a /128 prefix and cannot use more than 1 single IPv6 address
 #
 # Below, set LXCBR_NAME to desired bridge interface name
-#        set LXCBR0_NAT_NET for desired NAT network address
-#        set OTHER_ROUTE_DEVICE to make bridged network available
-#                               on other local network interfaces
+#        set LXCBR_NAT_NET  for desired NAT   network address for IPv4
+#        set LXCBR_NAT_NET6 for desired NAT66 network address for IPv6
 
-DEFAULT_ROUTE_DEVICE=${DEFAULT_ROUTE_DEVICE:-$(/sbin/route | grep default | awk '{print $8}'|uniq)}
-OTHER_ROUTE_DEVICE=${OTHER_ROUTE_DEVICE:-"eth0"}
-LXCBR_NAME=${LXCBR_NAME:-lxcbr0}
-LXCBR0_NAT_NET=${LXCBR0_NAT_NET:-192.168.100}
+DEFAULT_ROUTE_DEVICE=$(/sbin/route | grep default | awk '{print $8}'|uniq)
+LXCBR_NAME="lxcbr0"
+LXCBR_NAT_NET="10.0.0" # just use 10.0.0 for 10.0.0.0
+LXCBR_IPv4="${LXCBR_NAT_NET}.1"
+LXCBR_IPv4_PREFIX="24"
+LXCBR_NAT_NET6="fd00:dead:beef::"
+LXCBR_IPv6="${LXCBR_NAT_NET6}1"
+LXCBR_IPv6_PREFIX="64"
+IPv6=1
 PATH=/sbin:/usr/sbin:$PATH
 
 start()
 {
-  if brctl show |grep $LXCBR_NAME 1>/dev/null 2>/dev/null ; then
-    echo "lxbr0 already exists"
+  if ip link show type bridge |grep $LXCBR_NAME 1>/dev/null 2>/dev/null ; then
+    echo "$LXCBR_NAME already exists"
   else
     echo "Setting up $LXCBR_NAME on $DEFAULT_ROUTE_DEVICE ..."
+
+    # Enable forwarding
+    # IPv4
     echo 1 > /proc/sys/net/ipv4/ip_forward
-    brctl addbr $LXCBR_NAME
-    brctl setfd $LXCBR_NAME 0
-    ifconfig $LXCBR_NAME ${LXCBR0_NAT_NET}.1 netmask 255.255.255.0 promisc up
-    iptables -t nat -A POSTROUTING -o $DEFAULT_ROUTE_DEVICE -j MASQUERADE
-    if [ -z $OTHER_ROUTE_DEVICE ] ; then
-      echo "No other route device to NAT"
-    else
-      iptables -t nat -A POSTROUTING -o $OTHER_ROUTE_DEVICE -j MASQUERADE
+    # IPv6
+    if [ "$IPv6" = "1" ]; then
+      echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
+    fi
+
+    # Create the bridge
+    ip link add name $LXCBR_NAME type bridge
+    # Put bridge up
+    ip link set $LXCBR_NAME up
+
+    # assign IPv4 to the bridge
+    ip addr add $LXCBR_IPv4/$LXCBR_IPv4_PREFIX dev $LXCBR_NAME
+    # assign IPv6 to the bridge
+    if [ "$IPv6" = "1" ]; then
+      ip -6 addr add $LXCBR_IPv6/$LXCBR_IPv6_PREFIX dev $LXCBR_NAME
+    fi
+
+    # Erase existing table/rules
+    echo "Deleting inet nat table..."
+    nft delete table inet nat
+    echo "Remember to create again the nat rules."
+    # Create nat table for IPv4 and IPv6
+    nft add table inet nat
+    # Add a prerouting chain for IPv4 and IPv6 NAT
+    nft add chain inet nat prerouting  '{ type nat hook prerouting priority 0 ; }'
+    # Add a postrouting chain for IPv4 and IPv6 NAT
+    nft add chain inet nat postrouting '{ type nat hook postrouting priority 100 ; }'
+
+    # NAT IPv4
+    # Add a masquerading rule for IPv4 (eth0 interface and 10.0.0.0/24 subnet)
+    # This will get the container to exit with the external ip address
+    nft add  rule inet nat postrouting oifname "$DEFAULT_ROUTE_DEVICE" ip saddr ${LXCBR_NAT_NET}.0/$LXCBR_IPv4_PREFIX masquerade
+
+    # NAT66 IPv6
+    if [ "$IPv6" = "1" ]; then
+      # Add a masquerading rule for IPv6 (eth0 interface and fd00:dead:beef::/64 subnet)
+      # This will get the container to exit with the external ip address
+      nft add rule  inet nat postrouting oifname "$DEFAULT_ROUTE_DEVICE" ip6 saddr ${LXCBR_NAT_NET6}/$LXCBR_IPv6_PREFIX masquerade
     fi
   fi
 }
 
 stop()
 {
-  if brctl show |grep $LXCBR_NAME 1>/dev/null 2>/dev/null ; then
-    ifconfig $LXCBR_NAME down
-    brctl delbr $LXCBR_NAME
+  if ip link show type bridge |grep $LXCBR_NAME 1>/dev/null 2>/dev/null ; then
+    ip link set dev $LXCBR_NAME down
+    ip link delete $LXCBR_NAME type bridge
   else
     echo "$LXCBR_NAME is not there to shutdown"
   fi
@@ -46,17 +84,31 @@ stop()
 
 status()
 {
-  if brctl show |grep $LXCBR_NAME 1>/dev/null 2>/dev/null ; then
+  if ip link show type bridge |grep $LXCBR_NAME 1>/dev/null 2>/dev/null ; then
     echo "$LXCBR_NAME exists."
+    ip addr show dev $DEFAULT_ROUTE_DEVICE
+    echo
+    ip addr show dev $LXCBR_NAME
+    echo
+    ip link show type bridge $LXCBR_NAME
   else
     echo "$LXCBR_NAME not found."
   fi
 }
 
 case "$1" in
-'start')start;;
-'stop')stop;;
-'restart')stop;start;;
-'status')status;;
-*)echo "$0 start|stop|restart|status"
+  'start')
+    start;;
+  'stop')
+    stop;;
+  'restart')
+    stop;
+    start;;
+  'status')
+    status;;
+  *)
+    echo
+    echo "  Usage: $0 start|stop|restart|status"
+    echo
+    ;;
 esac
