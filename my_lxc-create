@@ -16,7 +16,7 @@ DHCP=no	                     # Put yes if you want DHCP
 
 ############################################################################# do not touch below this line
 
-. /usr/local/bin/my_lxc-common
+. my_lxc-common
 
 function usage() {
   echo "Usage: $0 script takes the following options:

@@ -5,7 +5,7 @@
 # Usage: lxo <container_name>
 #
 
-. /usr/local/bin/my_lxc-common
+. my_lxc-common
 
 NAME=$1
 CONFIG=$LXC_PATH/$NAME/config
@@ -27,6 +27,14 @@ if [ $? -eq 0 ]; then
 fi
 
 OWNER=$(owner $NAME)
+
+# is it stopped already?
+STATUS=$(is_it_running $NAME $OWNER)
+if [ $STATUS -eq 0 ]; then
+  echo "LXC container $NAME is stopped. Starting..."
+  lxu $NAME
+fi
+
 sudo -u $OWNER lxc-console -n $NAME
 
 exit 0

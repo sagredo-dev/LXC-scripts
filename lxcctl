@@ -16,7 +16,7 @@
 #
 
 . /usr/share/lxc/lxc.functions
-. /usr/local/bin/my_lxc-common
+. my_lxc-common
 export PATH=$PATH:/bin:/usr/bin:/usr/local/bin
 
 start_lxc() {

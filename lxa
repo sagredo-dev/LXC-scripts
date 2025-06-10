@@ -5,7 +5,7 @@
 # Usage: lxa <container_name> [<command>]
 #
 
-. /usr/local/bin/my_lxc-common
+. my_lxc-common
 
 NAME=$1
 COMMAND=${2:-/bin/bash --rcfile /etc/profile}

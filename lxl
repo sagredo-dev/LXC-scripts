@@ -3,7 +3,7 @@
 # lxc-ls wrapper script by Roberto Puzzanghera https://notes.sagredo.eu
 #
 
-. /usr/local/bin/my_lxc-common
+. my_lxc-common
 
 CONFIG=$LXC_PATH/$1/config
 

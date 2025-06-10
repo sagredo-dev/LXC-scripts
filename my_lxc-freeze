@@ -5,7 +5,7 @@
 # Usage: my_lxc-freeze -n <name>
 #
 
-. /usr/local/bin/my_lxc-common
+. my_lxc-common
 
 # expected usage
 usage() {

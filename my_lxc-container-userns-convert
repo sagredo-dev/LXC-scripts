@@ -26,7 +26,7 @@
 #
 # More info at http://bazaar.launchpad.net/~serge-hallyn/+junk/nsexec/files
 
-. /usr/local/bin/my_lxc-common
+. my_lxc-common
 
 if [ $(id -u) -ne 0 ]; then
 	echo "Must be called as root"
@@ -67,7 +67,7 @@ lxc.idmap = u 0 ${uid} $range
 lxc.idmap = g 0 ${uid} $range
 EOF
 
-/usr/local/bin/uidmapshift -b $LXC_PATH/$container/rootfs 0 $uid $range
+uidmapshift -b $LXC_PATH/$container/rootfs 0 $uid $range
 
 echo "Container $container has been converted"
 exit 0
