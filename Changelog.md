@@ -1,5 +1,11 @@
 # Changelog
 
+- Jun 14, 2025
+  - lxc-common.conf: cgroup2 compat (limits not applied successfully yet)
+  - rc.lxc-bridge and rc.lxc-nat updates
+  - Avoiding the full path when importing my_lxc-common
+  - Number of processors determined dinamically in my_lxc-turn_into_unprivileged
+
 - Mar 8, 2025
   - added slackpkg+ to slackware-current template 
 
