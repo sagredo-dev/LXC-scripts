@@ -31,7 +31,8 @@ if [ -n "$1" ]; then
   fi
   # unprivileged containers of user $1
   echo -e "${GREEN}Unprivileged running containers of user ${HIGHLIGHT}${1}${NC}"
-  sudo -u $1 lxc-ls --fancy
+  # 2>/dev/null drop errors as the user cannot access net namespace
+  sudo -u $1 lxc-ls --fancy 2>/dev/null
 else
   # show normal lxc-ls output
   echo -e "${GREEN}All containers${NC}"
@@ -62,7 +63,8 @@ else
   for user in "${users[@]}"
   do
      echo -e "${GREEN}Unprivileged running containers of user ${HIGHLIGHT}${user}${NC}"
-     sudo -u $user lxc-ls --fancy
+     # 2>/dev/null drop errors as the user cannot access net namespace
+     sudo -u $user lxc-ls --fancy 2>/dev/null
   done
 fi
 

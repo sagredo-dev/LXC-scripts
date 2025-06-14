@@ -54,15 +54,6 @@ remove_ids() {
 }
 
 delete_user() {
-  # unload cgroup
-  cgclear -l /etc/cgconfig.d/$1.conf
-  if [ $? -ne 0 ]; then
-    echo "cgclear failed in unloading cgroups. Check later..."
-  fi
-  # remove cgconfig/cgrules config files
-  rm /etc/cgconfig.d/$1.conf
-  rm /etc/cgrules.d/$1.conf
-
   # remove user from lxc-usernet
   sed -i "/${1} /d" /etc/lxc/lxc-usernet
   if [ $? -ne 0 ]; then

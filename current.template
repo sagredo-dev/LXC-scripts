@@ -1,7 +1,7 @@
 # slackpkg template for LXC containers based on slackware current
-# this set of packages is suitable for a LAMP server   
+# this set of packages is suitable for a LAMP server
 #
-# 2025.03.08
+# v. 2025.06.14
 # added slackpkg+
 #
 # 2024.08.16
@@ -42,7 +42,6 @@ infozip
 kmod
 libpwquality
 lzip
-lzlib
 kbd
 less
 logrotate
@@ -77,6 +76,7 @@ most
 nano
 slackpkg
 slackpkg+
+sqlite
 sudo
 texinfo
 
@@ -94,16 +94,11 @@ git
 guile
 kernel-headers
 libtool
-#llvm
 m4
 make
 ninja
 perl
 pkg-config
-python2
-python3
-#rust
-sqlite
 strace
 
 #[L]
@@ -141,7 +136,6 @@ libseccomp
 libsigsegv
 libsodium
 libunistring
-liburing
 libxml2
 libzip
 lz4
@@ -163,6 +157,7 @@ ca-certificates
 cyrus-sasl
 curl
 dhcpcd
+gnupg
 gnupg2
 gnutls
 inetd

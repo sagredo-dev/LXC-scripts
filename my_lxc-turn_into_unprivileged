@@ -23,70 +23,6 @@ usage() {
   echo
 }
 
-setup_cgconfig() {
-  # Get number of CPUs
-  NPROC=${NPROC:-0-$(($(nproc)-1))}
-
-  if [ ! -d /etc/cgconfig.d ]; then
-    mkdir /etc/cgconfig.d
-  fi
-
-  FILE=/etc/cgconfig.d/$USER.conf
-  if [ ! -f $FILE ]; then
-cat > $FILE << __EOF__
-group $USER {
-  perm {
-    task {
-      uid = $USER;
-      gid = nogroup;
-    }
-    admin {
-      uid = $USER;
-      gid = nogroup;
-    }
-  }
-  cpuset {
-    cgroup.clone_children = 1;
-    cpuset.mems = 0;
-    cpuset.cpus = $NPROC;
-  }
-  cpu {}
-  cpuacct {}
-  blkio {}
-  memory { memory.use_hierarchy = 1; }
-  devices {}
-  freezer {}
-  net_cls {}
-  perf_event {}
-  net_prio {}
-  pids {}
-}
-__EOF__
-
-    # setup control group file system
-    cgconfigparser -l /etc/cgconfig.d/${USER}.conf
-    if [ $? -ne 0 ]; then
-      echo "cgconfigparser failed in parsing /etc/cgconfig.d/${USER}.conf. Exiting..."
-      exit 1
-    fi
-  else
-    echo "$FILE already exists. Skipping..."
-  fi
-}
-
-setup_cgrules() {
-  if [ ! -d /etc/cgrules.d ]; then
-    mkdir /etc/cgrules.d
-  fi
-
-  FILE=/etc/cgrules.d/$USER.conf
-  if [ ! -f $FILE ]; then
-    echo "$USER          *               ${USER}/" > $FILE
-  else
-    echo "$FILE already exists. Skipping..."
-  fi
-}
-
 setup_usernet() {
   FILE=/etc/lxc/lxc-usernet
   if [ ! -f "$FILE" ]; then
@@ -208,23 +144,9 @@ my_lxc-container-userns-convert $NAME $START_UID $RANGE
 chown $USER:nogroup $LXC_PATH/$NAME $LXC_PATH/$NAME/config
 mkdir -p /home/$USER/.local/share/lxc
 mkdir -p /home/$USER/.cache
-chown -R $USER:nogroup /home/$USER/.local /home/$USER/.cache
+chown -R $USER:nogroup /home/$USER
 chmod go-rw $LXC_PATH/$NAME
 chmod +x $LXC_PATH/$NAME
-
-# setup cgconfig
-setup_cgconfig
-if [ $? -ne 0 ]; then
-  echo "Failed in setting up cgconfig. Exiting..."
-  exit 1
-fi
-
-# setup cgrules
-setup_cgrules
-if [ $? -ne 0 ]; then
-  echo "Failed in setting up cgrules. Exiting..."
-  exit 1
-fi
 
 # add user to lxc-usernet
 setup_usernet
