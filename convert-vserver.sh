@@ -5,7 +5,7 @@
 # setting up its configuration.
 # It is a modification of Matteo Bernardini's Slackware template for LXC
 # by Roberto Puzzanghera
-# More info here https://notes.sagredo.eu/en/other-contents-186/migrating-from-linux-vserver-to-lxc-slackware-235.html
+# More info here https://www.sagredo.eu/en/other-contents-186/migrating-from-linux-vserver-to-lxc-slackware-235.html
 ###########################################################################
 
 #

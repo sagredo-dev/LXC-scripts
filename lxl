@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# lxc-ls wrapper script by Roberto Puzzanghera https://notes.sagredo.eu
+# lxc-ls wrapper script by Roberto Puzzanghera https://www.sagredo.eu
 #
 
 . my_lxc-common

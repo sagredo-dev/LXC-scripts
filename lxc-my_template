@@ -10,7 +10,7 @@
 # Template for slackware by Matteo Bernardini <ponce@slackbuilds.org>
 # some parts are taken from the debian one (used as model)
 
-# Modifications by Roberto Puzzanghera <https://notes.sagredo.eu>
+# Modifications by Roberto Puzzanghera <https://www.sagredo.eu>
 
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public

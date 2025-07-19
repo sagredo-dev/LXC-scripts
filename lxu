@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# lxc-start script by Roberto Puzzanghera https://notes.sagredo.eu
+# lxc-start script by Roberto Puzzanghera https://www.sagredo.eu
 #
 # This script starts a container running the lxc-start command as the
 # owner user if it is unpriviledged, or as root otherwise.

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# lxc restart script by Roberto Puzzanghera https://notes.sagredo.eu
+# lxc restart script by Roberto Puzzanghera https://www.sagredo.eu
 #
 # Usage: lxr <container_name>
 #
