@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# IPv6 addition and nft migration by Roberto Puzzanghera https://notes.sagredo.eu (2025)
+# IPv6 addition and nft migration by Roberto Puzzanghera https://www.sagredo.eu (2025)
 #
 # Set up a bridge and a NAT/NAT66 network hanging off it.
 # Set IPv6=1 if you have a /128 prefix and cannot use more than 1 single IPv6 address

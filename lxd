@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# lxc-stop script by Roberto Puzzanghera https://notes.sagredo.eu
+# lxc-stop script by Roberto Puzzanghera https://www.sagredo.eu
 #
 # This script stops a container running the lxc-stop command as the
 # owner user if it is unpriviledged, or as root otherwise.

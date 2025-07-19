@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# lxc-freeze wrapper by Roberto Puzzanghera - https://notes.sagredo.eu
+# lxc-freeze wrapper by Roberto Puzzanghera - https://www.sagredo.eu
 #
 # Usage: my_lxc-freeze -n <name>
 #

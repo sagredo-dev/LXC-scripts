@@ -10,7 +10,7 @@
 # To stop the container it uses lxc-attach to execute /sbin/halt
 # inside of it.
 #
-# Modified by Roberto Puzzanghera https://notes.sagredo.eu for managing
+# Modified by Roberto Puzzanghera https://www.sagredo.eu for managing
 # unprivileged containers and to handle systemd containers on a
 # slackware host.
 #

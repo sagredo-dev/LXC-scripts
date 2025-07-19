@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# lxc-copy wrapper by Roberto Puzzanghera - https://notes.sagredo.eu
+# lxc-copy wrapper by Roberto Puzzanghera - https://www.sagredo.eu
 #
 # Usage: my_lxc-copy -h
 #

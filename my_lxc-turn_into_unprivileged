@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Script to turn a normal container into an unprivileged one.
-# by Roberto Puzzanghera https://notes.sagredo.eu
+# by Roberto Puzzanghera https://www.sagredo.eu
 #
 # Usage:
 # my_lxc-turn_into_unprivileged <container_name> <user>

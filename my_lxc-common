@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # LXC Scripts by Roberto Puzzanghera
-# More info here https://notes.sagredo.eu/lxc-scripts-280/wrapper-scripts-for-lxc-unprivileged-containers-258.html
+# More info here https://www.sagredo.eu/lxc-scripts-280/wrapper-scripts-for-lxc-unprivileged-containers-258.html
 #
 
 DOMAIN=mydomain.tld # default domain
