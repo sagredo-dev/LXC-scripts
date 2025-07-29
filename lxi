@@ -27,6 +27,6 @@ if [ $? -eq 0 ]; then
 fi
 
 OWNER=$(owner $NAME)
-sudo -u $OWNER lxc-info -n $NAME 2>/dev/null
+sudo -u $OWNER lxc-info -n $NAME
 
 exit 0
