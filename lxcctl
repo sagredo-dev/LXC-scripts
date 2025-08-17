@@ -9,36 +9,27 @@
 #
 # To stop the container it uses lxc-attach to execute /sbin/halt
 # inside of it.
-#
-# Modified by Roberto Puzzanghera https://www.sagredo.eu for managing
-# unprivileged containers and to handle systemd containers on a
-# slackware host.
-#
 
 . /usr/share/lxc/lxc.functions
-. my_lxc-common
-export PATH=$PATH:/bin:/usr/bin:/usr/local/bin
 
 start_lxc() {
-  for CONTAIN in $(lxc-ls); do
-    # check if autostart is on
-    if [ "$(lxc-info -n $CONTAIN -c lxc.start.auto)" = "lxc.start.auto = 1" ]; then
-      echo "Starting LXC container ${CONTAIN}."
-      lxu $CONTAIN
-      if [ $? -gt 0 ]; then
-        return 2
+  for CONTAIN in $(/usr/bin/lxc-ls); do
+    if [ "$(lxc-info -n $CONTAIN -c lxc.start.auto)" = "lxc.start.auto = 1"  ]; then
+      if [ "$(/usr/bin/lxc-info -s -n $CONTAIN | grep STOPPED$)" ]; then
+        echo "Starting LXC container ${CONTAIN}."
+        lxu $CONTAIN
+        if [ $? -gt 0 ]; then
+          return 2
+        fi
       fi
     fi
   done
 }
 
 stop_lxc() {
-  for CONTAIN in $(lxc-ls); do
-    OWNER=$(owner $CONTAIN)
-    if [ "$(sudo -u $OWNER lxc-info -s -n $CONTAIN 2> /dev/null | grep RUNNING$)" ]; then
-      echo "Stopping LXC container ${CONTAIN}."
-      lxd $CONTAIN
-    fi
+  for CONTAIN in $(/usr/bin/lxc-ls --active); do
+    echo "Stopping LXC container ${CONTAIN}."
+    lxd $CONTAIN
     if [ $? -gt 0 ]; then
       return 2
     fi
@@ -51,21 +42,6 @@ restart_lxc() {
   start_lxc
 }
 
-mount_systemd() {
-  # trick to fake a systemd cgroup mount
-  # it can cause side effects on host and guest
-  # reboot to revert
-  # https://www.linuxquestions.org/questions/slackware-14/lxc-4-0-x-and-libcgroups-for-slackware-current-4175697576/#post6273843
-  echo "Mounting systemd cgroup..."
-  [ -h /sys/fs/cgroup/systemd ] && rm -f /sys/fs/cgroup/systemd && rm -f /run/systemd
-  mkdir -p /sys/fs/cgroup/systemd
-  mkdir -p /run/systemd
-  mount -t cgroup -o none,name=systemd systemd /sys/fs/cgroup/systemd 2>/dev/null
-  mkdir -p /sys/fs/cgroup/unified
-  mount -t cgroup2 -o rw,nosuid,nodev,noexec,relatime,nsdelegate cgroup2 /sys/fs/cgroup/unified 2>/dev/null
-}
-
-
 case "$1" in
 'start')
   start_lxc
@@ -73,12 +49,9 @@ case "$1" in
 'stop')
   stop_lxc
   ;;
-'restart')
+restart)
   restart_lxc
   ;;
-'mount')
-  mount_systemd
-  ;;
 *)
-  echo "usage $0 start|stop|restart|mount"
+  echo "usage $0 start|stop|restart"
 esac
