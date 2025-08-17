@@ -7,8 +7,6 @@
 # container is started (in an auto-detached screen session if
 # screen is available) when rc.lxc is called with the "start" param.
 #
-# To stop the container it uses lxc-attach to execute /sbin/halt
-# inside of it.
 
 . /usr/share/lxc/lxc.functions
 
