@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# lxc-copy wrapper by Roberto Puzzanghera - https://www.sagredo.eu
+# lxc-copy wrapper by Roberto Puzzanghera - https://notes.sagredo.eu
 #
 # Usage: my_lxc-copy -h
 #
@@ -15,7 +15,8 @@ usage() {
   -N  <newname> Name of the new container
   -R            Rename the original container. If -R is provided the following options will be ignored.
   -d            Use DHCP
-  -i  <ip>      IP address of the container. Ignored if -d was declared
+  -4  <ip4>      IPv4 address of the container. Ignored if -d was declared
+  -6  <ip6>     IPv6 address of the container. Ignored if -d was declared
   -u  <user>    Set the system user that will own the container.
                 <user> will be created if not existing yet.
                 If not declared the container will be owned by the user who owns the source container
@@ -24,14 +25,15 @@ usage() {
 }
 
 # Define the flags the user can pass to the script
-while getopts :n:N:Ri:u:dh option
+while getopts :n:N:R4:6u:dh option
   do
     case "${option}" in
     n) SOURCE=${OPTARG};;
     N) DEST=${OPTARG};;
     R) RENAME=-R;;
     u) OWNER=${OPTARG};;
-    i) NEW_IP=${OPTARG};;
+    4) NEW_IP4=${OPTARG};;
+    6) NEW_IP6=${OPTARG};;
     d) DHCP=yes;;
     h) usage;;
     *) usage;;
@@ -126,19 +128,16 @@ if [ -n "$RENAME" ]; then
 else
   #### copy
 
-  # fix fstab problem
-  if [ -f $LXC_PATH/$DEST/fstab ]; then
-    rm $LXC_PATH/$DEST/fstab
-    sed -i "s/${DEST}\/fstab/${DEST}\/rootfs\/etc\/fstab/g" $LXC_PATH/$DEST/config
-  fi
+  # adjust mount points with the old name in config
+  sed -i "s/${SOURCE}\/rootfs/${DEST}\/rootfs/g" $LXC_PATH/$DEST/config
 
   ########################## setup the net
   if [ -f $LXC_PATH/$SOURCE/rootfs/etc/rc.d/rc.inet1.conf ]; then
     # retrieve old IP
-    OLD_IP=$(sed -n "/#/! s/^IPADDRS\[0\]=\"\(.*\)\/24\"/\1/p" $LXC_PATH/$SOURCE/rootfs/etc/rc.d/rc.inet1.conf)
     if [ -z "$DHCP" ]; then
       # If not DHCP replace old IP with new IP
-      sed -i "s/IPADDRS\[0\]=\".*\"/IPADDRS\[0\]=\"${NEW_IP}\/24\"/g" $LXC_PATH/$DEST/rootfs/etc/rc.d/rc.inet1.conf
+      sed -i "s/IPADDRS\[0\]=\".*\"/IPADDRS\[0\]=\"${NEW_IP4}\/24\"/g"   $LXC_PATH/$DEST/rootfs/etc/rc.d/rc.inet1.conf
+      sed -i "s/IP6ADDRS\[0\]=\".*\"/IP6ADDRS\[0\]=\"${NEW_IP6}\/64\"/g" $LXC_PATH/$DEST/rootfs/etc/rc.d/rc.inet1.conf
     else
       # enable DHCP
       sed -i "s/USE_DHCP\[0\]=\"\"/USE_DHCP\[0\]=\"yes\"/g" $LXC_PATH/$DEST/rootfs/etc/rc.d/rc.inet1.conf
