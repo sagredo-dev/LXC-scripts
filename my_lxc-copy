@@ -25,7 +25,7 @@ usage() {
 }
 
 # Define the flags the user can pass to the script
-while getopts :n:N:R4:6u:dh option
+while getopts :n:N:R4:6:u:dh option
   do
     case "${option}" in
     n) SOURCE=${OPTARG};;
