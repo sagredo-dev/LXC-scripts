@@ -118,6 +118,9 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
+# adjust mount points with the old name in config
+sed -i "s/${SOURCE}\/rootfs/${DEST}\/rootfs/g" $LXC_PATH/$DEST/config
+
 # if renaming, adjust the privileges (no need to setup the net)
 if [ -n "$RENAME" ]; then
   #### rename
@@ -127,9 +130,6 @@ if [ -n "$RENAME" ]; then
   echo "done."
 else
   #### copy
-
-  # adjust mount points with the old name in config
-  sed -i "s/${SOURCE}\/rootfs/${DEST}\/rootfs/g" $LXC_PATH/$DEST/config
 
   ########################## setup the net
   if [ -f $LXC_PATH/$SOURCE/rootfs/etc/rc.d/rc.inet1.conf ]; then
