@@ -22,7 +22,14 @@ check_user() {
   fi
 }
 
-if [ -n "$1" ]; then
+if [ "$1" == "--active" ] || [ "$1" == "--frozen" ] || [ "$1" == "--running" ]; then
+  # Get the owners array
+  users=($(list_owners))
+  # lxc-ls --active for each owner
+  for u in "${users[@]}"; do
+    sudo -u $u lxc-ls --active
+  done
+elif [ -n "$1" ]; then
   # sanity check
   check_user $1
   if [ $? -eq 1 ]; then
@@ -37,26 +44,8 @@ else
   echo -e "${GREEN}All containers${NC}"
   lxc-ls --fancy
 
-  # Build the owners array with a loop on all unprivileged containers
-  users=()
-
-  for CONTAIN in $(lxc-ls); do
-    # is it unprivileged?
-    if grep -q 'lxc.idmap' $LXC_PATH/$CONTAIN/config; then
-      # find owner of the container
-      USER=$(owner $CONTAIN)
-
-      # Add new element at the end of the array
-      if [[ ! " ${users[*]} " =~ " $USER " ]]; then
-        users=(${users[@]} $USER)
-        # whatever you want to do when array contains value
-      fi
-    fi
-  done
-
-  # users is the array of users which have containers. Sort the array:
-  IFS=$'\n' users=($(sort <<<"${users[*]}"))
-  unset IFS
+  # Get the owners array
+  users=($(list_owners))
 
   # Show containers belonging to each user
   for user in "${users[@]}"

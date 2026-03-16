@@ -25,7 +25,7 @@ start_lxc() {
 }
 
 stop_lxc() {
-  for CONTAIN in $(/usr/bin/lxc-ls --active); do
+  for CONTAIN in $(lxl --active); do
     echo "Stopping LXC container ${CONTAIN}."
     lxd $CONTAIN
     if [ $? -gt 0 ]; then
