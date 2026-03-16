@@ -1,6 +1,9 @@
 # slackpkg template for LXC containers based on slackware current
 # this set of packages is suitable for a LAMP server
 #
+# v 2026.03.16
+# added ngtcp2 (needed by sboui)
+#
 # v. 2025.06.14
 # added slackpkg+
 #
@@ -174,6 +177,7 @@ nettle
 netwatch
 network-scripts
 nghttp2
+ngtcp2
 npth
 openldap
 openssh
