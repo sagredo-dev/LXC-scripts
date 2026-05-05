@@ -23,6 +23,9 @@ check_user() {
 }
 
 if [ "$1" == "--active" ] || [ "$1" == "--frozen" ] || [ "$1" == "--running" ]; then
+  # print the active privileged containers first
+  lxc-ls --active
+  # then print the active unprivileged containers
   # Get the owners array
   users=($(list_owners))
   # lxc-ls --active for each owner
