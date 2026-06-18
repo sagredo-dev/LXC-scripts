@@ -1,6 +1,9 @@
 # slackpkg template for LXC containers based on slackware current
 # this set of packages is suitable for a LAMP server
 #
+# v 2026.06.18
+# added fprintd (required by pam)
+#
 # v 2026.03.16
 # added ngtcp2 (needed by sboui)
 #
@@ -111,6 +114,7 @@ brotli
 db48
 elfutils
 expat
+fprintd
 freetype
 gc
 gd
