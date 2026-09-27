@@ -214,7 +214,7 @@ echo "$MIRROR/$PKGMAIN-$release/" > $CONF/mirrors
 touch $CONF/blacklist
 
 cat <<EOF > $CONF/slackpkg.conf
-# v15.0
+# v16.0
 ARCH=$arch
 TEMP=$cache/cache-$release-$arch
 WORKDIR=$cache/slackpkg-$release-$arch
