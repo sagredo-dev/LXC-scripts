@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# lxc-start script by Roberto Puzzanghera https://www.sagredo.eu
+# lxc-start script by Roberto Puzzanghera https://notes.sagredo.eu
 #
 # This script starts a container running the lxc-start command as the
 # owner user if it is unpriviledged, or as root otherwise.
@@ -9,6 +9,7 @@
 #
 
 . my_lxc-common
+. my_cgroup-common
 
 NAME=$1
 
@@ -87,8 +88,19 @@ elif [ $STATUS -eq 2 ]; then
   exit 1
 fi
 
-# start
-sudo -u $OWNER lxc-start -n $NAME -f $CONFIG $OPTIONS
-sudo -u $OWNER lxc-wait  -n $NAME -s RUNNING
+############################ START ##################################
+
+cg_create $NAME $OWNER
+
+# We must 'cgexec sudo' into the 'session' cgroup first, which
+# then gets the unprivileged user's processes into its owned cgroup
+# hierarchy. Then the unprivileged user can do an unprivileged
+# cgexec into the 'delegated' cgroup
+cgexec -g :/${CGLXC}/${NAME}/session \
+  sudo -u $OWNER \
+  cgexec -g :/${CGLXC}/${NAME}/delegated \
+  lxc-start -n $NAME -f $CONFIG $OPTIONS
+
+sudo -u $OWNER lxc-wait -n $NAME -s RUNNING
 
 exit 0

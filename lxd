@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# lxc-stop script by Roberto Puzzanghera https://www.sagredo.eu
+# lxc-stop script by Roberto Puzzanghera https://notes.sagredo.eu
 #
 # This script stops a container running the lxc-stop command as the
 # owner user if it is unpriviledged, or as root otherwise.
@@ -9,6 +9,7 @@
 #
 
 . my_lxc-common
+. my_cgroup-common
 
 NAME=$1
 CONFIG=$LXC_PATH/$NAME/config
@@ -44,5 +45,8 @@ fi
 # stop
 sudo -u $OWNER lxc-stop -n $NAME
 sudo -u $OWNER lxc-wait -n $NAME -s STOPPED
+
+# delete cgroup
+cg_delete $NAME  
 
 exit 0

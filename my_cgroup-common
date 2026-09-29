@@ -1,0 +1,63 @@
+#!/bin/bash
+#
+# LXC Scripts by Roberto Puzzanghera
+# More info here https://www.sagredo.eu/lxc-scripts-280/wrapper-scripts-for-lxc-unprivileged-containers-258.html
+#
+# Thanks to 0XBF for instructions on cgroup settings
+# https://www.linuxquestions.org/questions/slackware-14/slackware-cgroup-v1-and-lxc-7-0-0-a-4175766824/page2.html#post6651046
+
+# root cgroup
+CGROOT="/sys/fs/cgroup"
+# cgroup of lxc containers
+CGLXC="lxc-containers"
+
+# Function to delegate controllers
+delegate_controllers () {
+  for cont in $(cat "$1"/cgroup.controllers); do
+    echo "+$cont" > "$1"/cgroup.subtree_control;
+  done
+}
+
+# Function to delete a cgroup
+cg_delete () {
+  [ -d "${CGROOT}/${CGLXC}/${1}/delegated/lxc.payload.${1}" ] &&
+    cgdelete -g :/${CGLXC}/${1}/delegated/lxc.payload.${1}
+  [ -d "${CGROOT}/${CGLXC}/${1}/delegated/lxc.pivot" ] &&
+    cgdelete -g :/${CGLXC}/${1}/delegated/lxc.pivot
+  [ -d "${CGROOT}/${CGLXC}/${1}/delegated" ] &&
+    cgdelete -g :/${CGLXC}/${1}/delegated
+  [ -d "${CGROOT}/${CGLXC}/${1}/session" ] &&
+    cgdelete -g :/${CGLXC}/${1}/session
+  [ -d "${CGROOT}/${CGLXC}/${1}" ] &&
+    cgdelete -g :/${CGLXC}/${1}
+}
+
+# Function to create a cgroup
+cg_create () {
+  CG_NAME=$1
+  CG_OWNER=$2
+
+  # If, for any reason, the $CG_NAME cgroup already exists, then delete it
+  [ -d "${CGROOT}/${CGLXC}/${CG_NAME}" ] && cg_delete $CG_NAME
+
+  # Create the required cgroups off of the root cgroup,
+  # delegate controllers, and set permissions:
+  # First a cgroup to hold the rest of unprivileged lxc containers:
+  if [ ! -d "${CGROOT}/${CGLXC}" ]; then
+    cgcreate -g :/${CGLXC}
+    delegate_controllers "${CGROOT}/${CGLXC}"
+  fi
+
+  # Make a cgroup for the unprivileged user if needed
+  if [ ! -d "${CGROOT}/${CGLXC}/${CG_NAME}" ]; then
+    cgcreate -t ${CG_OWNER}:users -a ${CG_OWNER}:users -g :/${CGLXC}/${CG_NAME}
+    delegate_controllers "${CGROOT}/${CGLXC}/${CG_NAME}"
+  fi
+
+  # Create two leafs, one for regular pids (session), and another to run lxc (delegated).
+  # These are just copying the names used by elogind/systemd, to match their format
+  [ -d "${CGROOT}/${CGLXC}/${CG_NAME}/session" ] ||
+    cgcreate -t ${CG_OWNER}:users -a ${CG_OWNER}:users -g :/${CGLXC}/${CG_NAME}/session
+  [ -d "${CGROOT}/${CGLXC}/${CG_NAME}/delegated" ] ||
+    cgcreate -t ${CG_OWNER}:users -a ${CG_OWNER}:users -g :/${CGLXC}/${CG_NAME}/delegated
+}

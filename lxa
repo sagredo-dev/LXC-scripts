@@ -6,6 +6,7 @@
 #
 
 . my_lxc-common
+. my_cgroup-common
 
 NAME=$1
 COMMAND=${2:-/bin/bash --rcfile /etc/profile}
@@ -58,6 +59,8 @@ elif [ $STATUS -eq 2 ]; then
   fi
 fi
 
-sudo -u $OWNER lxc-attach -n $NAME --keep-env --set-var HOSTNAME=$NAME.$DOMAIN --set-var USER=root --set-var HOME=/root -- $COMMAND
+cgexec -g :/${CGLXC}/${NAME}/session \
+  sudo -u $OWNER lxc-attach -n $NAME \
+  --keep-env --set-var HOSTNAME=$NAME.$DOMAIN --set-var USER=root --set-var HOME=/root -- $COMMAND
 
 exit 0
