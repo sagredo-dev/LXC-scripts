@@ -9,7 +9,7 @@
 #
 
 . my_lxc-common
-. my_cgroup-common
+[ "$USE_CGROUP" = "1" ] && . my_cgroup-common
 
 NAME=$1
 CONFIG=$LXC_PATH/$NAME/config
@@ -47,6 +47,6 @@ sudo -u $OWNER lxc-stop -n $NAME
 sudo -u $OWNER lxc-wait -n $NAME -s STOPPED
 
 # delete cgroup
-cg_delete $NAME  
+[ "$USE_CGROUP" = "1" ] && cg_delete $NAME  
 
 exit 0

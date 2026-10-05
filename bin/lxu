@@ -9,7 +9,7 @@
 #
 
 . my_lxc-common
-. my_cgroup-common
+[ "$USE_CGROUP" = "1" ] && . my_cgroup-common
 
 NAME=$1
 
@@ -90,16 +90,20 @@ fi
 
 ############################ START ##################################
 
-cg_create $NAME $OWNER
+if [ "$USE_CGROUP" = "1" ]; then
+  cg_create $NAME $OWNER
 
-# We must 'cgexec sudo' into the 'session' cgroup first, which
-# then gets the unprivileged user's processes into its owned cgroup
-# hierarchy. Then the unprivileged user can do an unprivileged
-# cgexec into the 'delegated' cgroup
-cgexec -g :/${CGLXC}/${NAME}/session \
-  sudo -u $OWNER \
-  cgexec -g :/${CGLXC}/${NAME}/delegated \
-  lxc-start -n $NAME -f $CONFIG $OPTIONS
+  # We must 'cgexec sudo' into the 'session' cgroup first, which
+  # then gets the unprivileged user's processes into its owned cgroup
+  # hierarchy. Then the unprivileged user can do an unprivileged
+  # cgexec into the 'delegated' cgroup
+  cgexec -g :/${CGLXC}/${NAME}/session \
+    sudo -u $OWNER \
+    cgexec -g :/${CGLXC}/${NAME}/delegated \
+    lxc-start -n $NAME -f $CONFIG $OPTIONS
+else
+    sudo -u $OWNER lxc-start -n $NAME -f $CONFIG $OPTIONS
+fi
 
 sudo -u $OWNER lxc-wait -n $NAME -s RUNNING
 

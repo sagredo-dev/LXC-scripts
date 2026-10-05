@@ -4,8 +4,9 @@
 # More info here https://www.sagredo.eu/lxc-scripts-280/wrapper-scripts-for-lxc-unprivileged-containers-258.html
 #
 
-DOMAIN=mydomain.tld # default domain
+DOMAIN=sagredo.eu   # default domain
 LXC_PATH=/lxc       # where to store LXC containers
+USE_CGROUP=1        # use cgroup v2 limits?
 
 ########################################################################################
 
